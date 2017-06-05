@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+[ExecuteInEditMode]
 public class GPUClaculate : MonoBehaviour {
 	public bool isVis;
 	private RenderTexture rt;
@@ -15,7 +16,7 @@ public class GPUClaculate : MonoBehaviour {
 	Vector2[] uv;
 	Vector4[] tangents;
 	int[] triangles;
-	GameObject go;
+	public GameObject go;
 	// Use this for initialization
 	void Start () {
 		rt = CreatRenderTexture ();
@@ -24,7 +25,6 @@ public class GPUClaculate : MonoBehaviour {
 		initTex = new Texture2D(rtSize, rtSize, TextureFormat.RGBAHalf, false);
 		initTex.filterMode = FilterMode.Point;
 		initTex.anisoLevel = 0;
-		Debug.Log (initTex.mipmapCount);
 		Color[] colors = initTex.GetPixels();
 		int numColor = colors.Length;
 		for (int i = 0; i < numColor; ++i)
@@ -42,52 +42,61 @@ public class GPUClaculate : MonoBehaviour {
 		for (int n = 0; n < rtSize; n++) {
 			for (int m = 0; m < rtSize; m++) {
 				int i = Random.Range (0,100);
-				SetNormal (m,n,new Vector3(i,3f,33f));
+				SetNormal (m,n,new Vector3(i,3f,100f));
 			}
 		}
 		mesh.normals = normals;
 		if(isVis)
 		go.GetComponent<MeshFilter> ().mesh = mesh;
+
+		for (int n = 0; n < rtSize; n++) {
+			for (int m = 0; m < rtSize; m++) {
+				int i = Random.Range (0,100);
+				SetNormal (m,n,new Vector3(i,Random.Range (0,100),20));
+			}
+		}
+		mesh.normals = normals;
 	}
 	public void SetNormal(int x,int y,Vector3 v)
 	{
 		int index = x + y * rtSize;
-		index *= 4;
-		normals [index] = normals [index + 1] = normals [index + 2] = normals [index + 3] = v;
+		normals [index] = v;
 	}
 	public void CreatMesh()
 	{
+		if (go != null)
+			GameObject.DestroyImmediate (go);
 		mesh = new Mesh();
 		float dealt = 2f / rtSize;
 		float d = 1f / (rtSize - 1);
-		vertices = new Vector3[rtSize*rtSize*4];
-		triangles = new int[rtSize*rtSize*6];
+		vertices = new Vector3[rtSize*rtSize];
+		triangles = new int[(rtSize-1)*(rtSize-1)*2*6];
 		normals = new Vector3[vertices.Length];
-		int vCount = 0;
-		int tCount = 0;
+		uv = new Vector2[rtSize*rtSize];
+
+		float uvD = 1f/(rtSize-1);
 		for (int n = 0; n < rtSize; n++) {
 			for (int m = 0; m < rtSize; m++) {
-				vertices [vCount] = new Vector3 (-1f + m * dealt, -1f + n * dealt, 1f);
-				vertices [vCount+1] = new Vector3 (-1f + m * dealt, -1f + (n+1) * dealt, 1f);
-				vertices [vCount+2] = new Vector3 (-1f + (m+1) * dealt, -1f + (n+1) * dealt, 1f);
-				vertices [vCount+3] = new Vector3 (-1f + (m+1) * dealt, -1f + n * dealt, 1f);
+				vertices [m+n*rtSize] = new Vector3 (-1f + m * dealt+dealt*0.5f, -1f + n * dealt+dealt*0.5f, 1f);
+				uv [m + n * rtSize] = new Vector2(m*uvD,n*uvD);
+			}
+		}
+		int count = 0;
+		for (int n = 0; n < rtSize-1; n++) {
+			for (int m = 0; m < rtSize-1; m++) {
+				triangles [count] = m + n * rtSize;
+				triangles [count+1] = m + (n+1) * rtSize;
+				triangles [count+2] = (m+1) + (n+1) * rtSize;
 
-				triangles [tCount] = vCount;
-				triangles [tCount+1] = vCount+1;
-				triangles [tCount+2] = vCount+3;
-				triangles [tCount+3] = vCount+3;
-				triangles [tCount+4] = vCount+1;
-				triangles [tCount+5] = vCount+2;
-				vCount += 4;
-				tCount += 6;
-
-				//normals.Add (new Vector3(n*d,n*d,1f));//0 0.5
-				//uv.Add (new Vector2(m*d,n*d));
+				triangles [count+3] = m + n * rtSize;
+				triangles [count+4] = (m+1) + (n+1) * rtSize;
+				triangles [count+5] = (m+1) + n * rtSize;
+				count += 6;
 			}
 		}
 		mesh.vertices = vertices;
 		//mesh.colors = colors;
-		//mesh.uv = uv;
+		mesh.uv = uv;
 		//mesh.tangents = tangents;
 		mesh.triangles = triangles;
 		mesh.normals = normals;
@@ -112,21 +121,11 @@ public class GPUClaculate : MonoBehaviour {
 	}
 	void OnPreRender()
 	{
-
-		for (int n = 0; n < rtSize; n++) {
-			for (int m = 0; m < rtSize; m++) {
-				int i = Random.Range (0,100);
-				SetNormal (m,n,new Vector3(i,3f,33f));
-			}
-		}
-		mesh.normals = normals;
-
-
-
 		RenderTexture.active = rt;
 		if (mat == null) {
 			mat = new Material (Shader.Find("GPUShader"));
 		}
+		mat.SetTexture ("_MainTex",oldRT);
 		mat.SetPass (0);
 		Graphics.DrawMeshNow (mesh,Matrix4x4.identity);
 		initTex.ReadPixels (new Rect(0f,0f,rt.width,rt.height),0,0);

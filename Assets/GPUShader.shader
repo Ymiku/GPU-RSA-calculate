@@ -53,15 +53,20 @@
 			        float scale = 1.0;
 			        #endif
 			        o.vertex.y *= scale;
-			        int ma;
 			        int i;
-			        for(int m=0;m<500;m++)
+			        	i = (v.normal.x*v.normal.y)%(v.normal.z);
+
+			        float f = float(i);
+			        float4 pre = tex2Dlod(_MainTex,float4(v.uv,0,0));
+			        //o.color.r = pre.x+f*0.005;
+			        o.color.r = pre.x+f*0.1;
+			        if(o.color.r>=1)
 			        {
-			        	i = ((v.normal.x+m)*v.normal.y)%(v.normal.z);
-			        	ma+=i;
+			        	o.color.r=1;
 			        }
-			        float f = float(i)/100;
-			        o.color = float4(f,f,f,1);
+			        //o.color.r = f;
+			        o.color.g = o.color.r;
+			        o.color.b =  o.color.g;
 			        return o;
 			}
 			 
